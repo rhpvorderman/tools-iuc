@@ -1,0 +1,100 @@
+<tool id="presto_clustersets" name="pRESTO ClusterSets" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>Cluster sequences by group.</description>
+    <expand macro="bio_tools"/>
+    <macros>
+        <import>presto_macros.xml</import>
+    </macros>
+
+    <expand macro="requirements"/>
+
+    <!-- Vsearch is part of the presto requirements, so use that as cluster program.-->
+    <version_command>ClusterSets.py --version</version_command>
+    <command detect_errors="exit_code"><![CDATA[
+        ln -s '$fastq_in' in.fastq &&
+        ClusterSets.py '$cc.command'
+          --nproc "\${GALAXY_SLOTS:-1}"
+          --cluster=vsearch
+          -s in.fastq
+          #if $cc.command == "barcode" and $cc.field != ""
+          -f $cc.field
+          #end if
+          #if $cc.command == "set" and $cc.field != ""
+          -f $cc.field
+          #end if
+          #if $cc.command == "set" and $cc.start != ""
+          --start $cc.start
+          #end if
+          #if $cc.command == "set" and $cc.end != ""
+          --end $cc.end
+          #end if
+          #if $delimiter !=""
+          --delim $delimiter
+          #end if
+          --outdir=.
+          --outname=tmp_cluster
+          #if $capture_log
+            --log '$log_out'
+          #end if
+    ]]></command>
+    <inputs>
+        <param argument="-s" name="fastq_in" type="data" format="fastq" label="Input FASTQ file"/>
+        <param argument="--delim" name="delimiter" type="text" value="" label="Delimiter"
+               help="A list of the three delimiters that separate annotation blocks, field names and values, and values within a field, respectively."/>
+        <conditional name="cc">
+            <param name="command" type="select" label="Command">
+                <option value="all">all: cluster all sequences regardless of annotation.</option>
+                <option value="barcode">barcode: cluster reads by clustering barcode sequences.</option>
+                <option value="set">set: Cluster sequences within annotation sets.</option>
+            </param>
+            <when value="barcode">
+                <param argument="-f" name="field" type="text" value="" label="Barcode Field"
+                       help="The annotation field containing barcode sequences."/>
+            </when>
+            <when value="set">
+                <param argument="-f" name="field" type="text" value="" label="Annotation Field"
+                       help="The annotation field containing annotations, such as UMI barcode, for sequence grouping."/>
+                <param argument="--start" name="start" type="text" value="" label="Sequence start"
+                       help="The start of the region to be used for clustering. Together with –end, this parameter can be used to specify a subsequence of each read to use in the clustering algorithm."/>
+                <param argument="--end" name="end" type="text" value="" label="Sequence end"
+                       help="The end of the region to be used for clustering."/>
+            </when>
+        </conditional>
+        <expand macro="presto-log-param"/>
+    </inputs>
+
+    <outputs>
+        <data name="fastq_out" format="fastq" from_work_dir="tmp_cluster_cluster-pass.fastq"/>
+        <expand macro="presto-log-output"/>
+    </outputs>
+
+    <tests>
+        <test>
+            <param  name="command" value="all"/>
+            <param  name="fastq_in" value="presto_alignsets_test_in.fastq"/>
+            <param  name="delim" value="|"/>
+        </test>
+        <test>
+            <param  name="command" value="barcode"/>
+            <param  name="fastq_in" value="presto_alignsets_test_in.fastq"/>
+            <param  name="delim" value="|"/>
+            <param  name="field" value="BARCODE"/>
+        </test>
+        <test>
+            <param  name="command" value="set"/>
+            <param  name="fastq_in" value="presto_alignsets_test_in.fastq"/>
+            <param  name="delim" value="|"/>
+            <param  name="field" value="BARCODE"/>
+            <param name="start" value="0"/>
+            <param name="end" value="10"/>
+        </test>
+    </tests>
+
+    <help><![CDATA[
+Removes primers and annotates sequences with primer and barcode identifiers
+
+See the `pRESTO online help <@PRESTO_BASE_URL@/en/stable>`_ for more information.
+
+@HELP_NOTE@
+    ]]></help>
+    <expand macro="citations" />
+</tool>
